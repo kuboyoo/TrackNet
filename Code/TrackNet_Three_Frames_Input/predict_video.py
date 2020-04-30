@@ -1,6 +1,6 @@
 import argparse
 import Models
-import Queue
+import queue
 import cv2
 import numpy as np
 from PIL import Image, ImageDraw
@@ -41,9 +41,11 @@ m = modelFN( n_classes , input_height=height, input_width=width   )
 m.compile(loss='categorical_crossentropy', optimizer= 'adadelta' , metrics=['accuracy'])
 m.load_weights(  save_weights_path  )
 
-# In order to draw the trajectory of tennis, we need to save the coordinate of preious 7 frames 
-q = Queue.deque()
-for i in range(0,8):
+# In order to draw the trajectory of tennis, we need to save the coordinate of preious N frames 
+q = queue.deque()
+N = 20 # trajectory points save queue size
+#for i in range(0,8):
+for i in range(0,N):
 	q.appendleft(None)
 
 #save prediction images as vidoe
@@ -75,7 +77,8 @@ img = cv2.resize(img, ( width , height ))
 #input must be float type
 img = img.astype(np.float32)
 
-
+#previous frame's ball coordinate
+prev =  [0,0]
 
 while(True):
 
@@ -137,31 +140,73 @@ while(True):
 
 			x = int(circles[0][0][0])
 			y = int(circles[0][0][1])
-			print currentFrame, x,y
+			print(currentFrame, x,y)
 
-			#push x,y to queue
-			q.appendleft([x,y])   
-			#pop x,y from queue
-			q.pop()    
+			if q[0] == None:
+				#push x,y to queue
+				q.appendleft([x,y])   
+				#pop x,y from queue
+				q.pop()
+				print("first pop!")
+			else:
+				px = prev[0]
+				py = prev[1]
+				dist = (x - px)*(x - px) + (y - py)*(y - py)
+				if dist < 400:
+					#push x,y to queue
+					q.appendleft([x,y])   
+					#pop x,y from queue
+					q.pop()
+
+			#previous coodinate save
+			prev = [x,y]
 		else:
 			#push None to queue
-			q.appendleft(None)
+			#q.appendleft(None)
+
+			#複数のボールが検出された場合, 前の座標に最も近いボールをキューに追加
+			dist = min_dist = 10000
+			nearest_circle = [0,0]
+			for c in circles:
+				x  = int(c[0][0])
+				y  = int(c[0][1])
+				px = prev[0]
+				py = prev[1]
+				dist = (x - px)*(x - px) + (y - py)*(y - py)
+				if dist < min_dist:
+					min_dist = dist
+					nearest_circle = c
+
+			x = int(c[0][0])
+			y = int(c[0][1])
+			print(currentFrame, x,y)
+			q.appendleft([x,y])
+
 			#pop x,y from queue
 			q.pop()
+
+			#previous coodinate save
+			prev = [x,y]
 	else:
 		#push None to queue
 		q.appendleft(None)
 		#pop x,y from queue
 		q.pop()
 
-	#draw current frame prediction and previous 7 frames as yellow circle, total: 8 frames
-	for i in range(0,8):
+	#draw current frame prediction and previous N-1 frames as yellow circle, total: N frames
+	for i in range(0,N):
 		if q[i] is not None:
 			draw_x = q[i][0]
 			draw_y = q[i][1]
 			bbox =  (draw_x - 2, draw_y - 2, draw_x + 2, draw_y + 2)
 			draw = ImageDraw.Draw(PIL_image)
 			draw.ellipse(bbox, outline ='yellow')
+			
+			if i > 0:
+				draw.line((pre_x, pre_y, draw_x, draw_y), fill='yellow', width=2)
+
+			pre_x = draw_x
+			pre_y = draw_y
 			del draw
 
 	#Convert PIL image format back to opencv image format
@@ -175,4 +220,4 @@ while(True):
 # everything is done, release the video
 video.release()
 output_video.release()
-print "finish"
+print("finish")
