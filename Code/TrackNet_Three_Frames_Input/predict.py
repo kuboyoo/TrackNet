@@ -4,12 +4,12 @@ import cv2
 import numpy as np
 import glob
 import os
-
+import sys
 #parse parameters
 parser = argparse.ArgumentParser()
 parser.add_argument("--save_weights_path", type = str  )
 parser.add_argument("--test_images_path", type = str , default = "")
-parser.add_argument("--output_path", type = str , default = "")
+parser.add_argument("--output_path", type = str , default = "../../Media/heatmaps/")
 parser.add_argument("--input_height", type=int , default = 360  )
 parser.add_argument("--input_width", type=int , default = 640 )
 parser.add_argument("--output_height", type=int , default = 224  )
@@ -40,16 +40,19 @@ model_output_width = m.outputWidth
 colors = [  ( i, i, i  ) for i in range(0, n_classes)  ]
 
 #predict each clips from 1 to 82
-for clip in range(1,82):
+dirs = glob.glob(images_path+'*')
+#print(dirs)
+for clip in dirs:
 
 	#get all JPG images in the path
-	images = glob.glob( images_path + str(clip) + "/*.jpg" )
+	images = glob.glob( clip + "/*.jpg" )
 	images.sort()
 
 
 	#create folder for saving output image  
-	if not os.path.exists(output_path + str(clip) + "/"):
-	    os.makedirs(output_path + str(clip) + "/")
+	if not os.path.exists(output_path +os.path.split(clip)[-1] + "/"):
+	    os.makedirs(output_path +os.path.split(clip)[-1] + "/")
+	print(output_path+os.path.split(clip)[-1]+'/')
 
 	#predict each images
 	#since TrackNet cant predict first and second images, so we start from third image
